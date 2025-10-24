@@ -54,8 +54,8 @@ Spoke (Sweden Central) -> Hub Firewall (Sweden Central) --
 - **Azure Firewall**
   - Standard tier, threat intelligence mode Alert.
   - Network rule collection <firewallName>-intra-spoke with:
-    - `allow-internal-east-west` permitting any protocol/port between Sweden Central and West Europe spoke CIDRs (enables east-west connectivity).
-    - `allow-spoke-internet-egress` permitting the spoke address spaces to reach `0.0.0.0/0` for general outbound browsing.
+  - `allow-internal-east-west` permitting any protocol/port between the hub and spoke address spaces in Sweden Central and West Europe (covers return paths when the firewalls SNAT traffic).
+  - `allow-spoke-internet-egress` permitting the hub and spoke address spaces to reach `0.0.0.0/0` for general outbound browsing.
   - No application or NAT rules are included—extend the hub module if you need them.
 - **Telemetry**
   - Diagnostics are not configured by default. Attach diagnostic settings for Log Analytics or storage as needed.

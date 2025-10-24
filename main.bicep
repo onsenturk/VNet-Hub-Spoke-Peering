@@ -58,8 +58,19 @@ param westEurope object = {
 	}
 }
 
-var swedenAllowedPrefixes = concat(swedenCentral.spoke.addressPrefixes, westEurope.spoke.addressPrefixes)
-var westAllowedPrefixes = concat(westEurope.spoke.addressPrefixes, swedenCentral.spoke.addressPrefixes)
+var swedenAllowedPrefixes = concat(
+	swedenCentral.spoke.addressPrefixes,
+	westEurope.spoke.addressPrefixes,
+	swedenCentral.hub.addressPrefixes,
+	westEurope.hub.addressPrefixes
+)
+
+var westAllowedPrefixes = concat(
+	westEurope.spoke.addressPrefixes,
+	swedenCentral.spoke.addressPrefixes,
+	westEurope.hub.addressPrefixes,
+	swedenCentral.hub.addressPrefixes
+)
 
 resource swedenCentralRg 'Microsoft.Resources/resourceGroups@2022-09-01' = {
 	name: swedenCentral.resourceGroupName

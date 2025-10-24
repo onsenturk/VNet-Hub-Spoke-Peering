@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "16166103671285146952"
+      "templateHash": "11729926745129949190"
     }
   },
   "parameters": {
@@ -85,8 +85,8 @@
     }
   },
   "variables": {
-    "swedenAllowedPrefixes": "[concat(parameters('swedenCentral').spoke.addressPrefixes, parameters('westEurope').spoke.addressPrefixes)]",
-    "westAllowedPrefixes": "[concat(parameters('westEurope').spoke.addressPrefixes, parameters('swedenCentral').spoke.addressPrefixes)]"
+    "swedenAllowedPrefixes": "[concat(parameters('swedenCentral').spoke.addressPrefixes, parameters('westEurope').spoke.addressPrefixes, parameters('swedenCentral').hub.addressPrefixes, parameters('westEurope').hub.addressPrefixes)]",
+    "westAllowedPrefixes": "[concat(parameters('westEurope').spoke.addressPrefixes, parameters('swedenCentral').spoke.addressPrefixes, parameters('westEurope').hub.addressPrefixes, parameters('swedenCentral').hub.addressPrefixes)]"
   },
   "resources": [
     {
@@ -146,7 +146,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.38.33.27573",
-              "templateHash": "14414000753167157804"
+              "templateHash": "1995986988942841507"
             }
           },
           "parameters": {
@@ -228,7 +228,7 @@
               "description": "Permit spoke address spaces to reach the public Internet through the firewall",
               "sourceAddresses": "[parameters('allowedSpokePrefixes')]",
               "destinationAddresses": [
-                "Internet"
+                "0.0.0.0/0"
               ],
               "destinationPorts": [
                 "*"
@@ -374,7 +374,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.38.33.27573",
-              "templateHash": "14414000753167157804"
+              "templateHash": "1995986988942841507"
             }
           },
           "parameters": {
@@ -456,7 +456,7 @@
               "description": "Permit spoke address spaces to reach the public Internet through the firewall",
               "sourceAddresses": "[parameters('allowedSpokePrefixes')]",
               "destinationAddresses": [
-                "Internet"
+                "0.0.0.0/0"
               ],
               "destinationPorts": [
                 "*"
