@@ -1,0 +1,1731 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.38.33.27573",
+      "templateHash": "16166103671285146952"
+    }
+  },
+  "parameters": {
+    "prefix": {
+      "type": "string",
+      "defaultValue": "dualregion",
+      "metadata": {
+        "description": "Name prefix applied to resources in both regions."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Tag dictionary applied to all resources created by this template."
+      }
+    },
+    "swedenCentral": {
+      "type": "object",
+      "defaultValue": {
+        "resourceGroupName": "[format('{0}-sc-network-rg', parameters('prefix'))]",
+        "location": "Sweden Central",
+        "hub": {
+          "name": "[format('{0}-sc-hub-vnet', parameters('prefix'))]",
+          "addressPrefixes": [
+            "10.10.0.0/16"
+          ],
+          "firewallSubnetPrefix": "10.10.0.0/24",
+          "firewallName": "[format('{0}-sc-azfw', parameters('prefix'))]",
+          "firewallPublicIpName": "[format('{0}-sc-azfw-pip', parameters('prefix'))]"
+        },
+        "spoke": {
+          "name": "[format('{0}-sc-spoke-vnet', parameters('prefix'))]",
+          "addressPrefixes": [
+            "10.11.0.0/16"
+          ],
+          "appSubnetName": "app",
+          "appSubnetPrefix": "10.11.0.0/24",
+          "postgresSubnetName": "data",
+          "postgresSubnetPrefix": "10.11.1.0/24",
+          "routeTableName": "[format('{0}-sc-spoke-udr', parameters('prefix'))]"
+        }
+      },
+      "metadata": {
+        "description": "Configuration for the Sweden Central hub-and-spoke environment."
+      }
+    },
+    "westEurope": {
+      "type": "object",
+      "defaultValue": {
+        "resourceGroupName": "[format('{0}-we-network-rg', parameters('prefix'))]",
+        "location": "West Europe",
+        "hub": {
+          "name": "[format('{0}-we-hub-vnet', parameters('prefix'))]",
+          "addressPrefixes": [
+            "10.20.0.0/16"
+          ],
+          "firewallSubnetPrefix": "10.20.0.0/24",
+          "firewallName": "[format('{0}-we-azfw', parameters('prefix'))]",
+          "firewallPublicIpName": "[format('{0}-we-azfw-pip', parameters('prefix'))]"
+        },
+        "spoke": {
+          "name": "[format('{0}-we-spoke-vnet', parameters('prefix'))]",
+          "addressPrefixes": [
+            "10.21.0.0/16"
+          ],
+          "appSubnetName": "app",
+          "appSubnetPrefix": "10.21.0.0/24",
+          "postgresSubnetName": "data",
+          "postgresSubnetPrefix": "10.21.1.0/24",
+          "routeTableName": "[format('{0}-we-spoke-udr', parameters('prefix'))]"
+        }
+      },
+      "metadata": {
+        "description": "Configuration for the West Europe hub-and-spoke environment."
+      }
+    }
+  },
+  "variables": {
+    "swedenAllowedPrefixes": "[concat(parameters('swedenCentral').spoke.addressPrefixes, parameters('westEurope').spoke.addressPrefixes)]",
+    "westAllowedPrefixes": "[concat(parameters('westEurope').spoke.addressPrefixes, parameters('swedenCentral').spoke.addressPrefixes)]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2022-09-01",
+      "name": "[parameters('swedenCentral').resourceGroupName]",
+      "location": "[parameters('swedenCentral').location]",
+      "tags": "[parameters('tags')]"
+    },
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2022-09-01",
+      "name": "[parameters('westEurope').resourceGroupName]",
+      "location": "[parameters('westEurope').location]",
+      "tags": "[parameters('tags')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name))]",
+      "resourceGroup": "[parameters('swedenCentral').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "vnetName": {
+            "value": "[parameters('swedenCentral').hub.name]"
+          },
+          "location": {
+            "value": "[parameters('swedenCentral').location]"
+          },
+          "addressPrefixes": {
+            "value": "[parameters('swedenCentral').hub.addressPrefixes]"
+          },
+          "firewallSubnetPrefix": {
+            "value": "[parameters('swedenCentral').hub.firewallSubnetPrefix]"
+          },
+          "firewallName": {
+            "value": "[parameters('swedenCentral').hub.firewallName]"
+          },
+          "firewallPublicIpName": {
+            "value": "[parameters('swedenCentral').hub.firewallPublicIpName]"
+          },
+          "allowedSpokePrefixes": {
+            "value": "[variables('swedenAllowedPrefixes')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "14414000753167157804"
+            }
+          },
+          "parameters": {
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the hub virtual network."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for hub resources."
+              }
+            },
+            "addressPrefixes": {
+              "type": "array",
+              "metadata": {
+                "description": "Address prefixes assigned to the hub virtual network."
+              }
+            },
+            "firewallSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Address prefix reserved for the Azure Firewall subnet."
+              }
+            },
+            "firewallManagementSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional address prefix for the Azure Firewall management subnet."
+              }
+            },
+            "firewallName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure Firewall resource."
+              }
+            },
+            "firewallPublicIpName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the public IP address resource for the Azure Firewall."
+              }
+            },
+            "allowedSpokePrefixes": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "CIDR ranges that should be permitted to traverse the hub firewall."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to hub resources."
+              }
+            }
+          },
+          "variables": {
+            "managementSubnet": "[if(empty(parameters('firewallManagementSubnetPrefix')), createArray(), createArray(createObject('name', 'AzureFirewallManagementSubnet', 'properties', createObject('addressPrefix', parameters('firewallManagementSubnetPrefix')))))]",
+            "hubSubnets": "[concat(createArray(createObject('name', 'AzureFirewallSubnet', 'properties', createObject('addressPrefix', parameters('firewallSubnetPrefix')))), variables('managementSubnet'))]",
+            "eastWestRule": {
+              "name": "allow-internal-east-west",
+              "description": "Allow east-west traffic between regional spokes",
+              "sourceAddresses": "[parameters('allowedSpokePrefixes')]",
+              "destinationAddresses": "[parameters('allowedSpokePrefixes')]",
+              "destinationPorts": [
+                "*"
+              ],
+              "protocols": [
+                "Any"
+              ]
+            },
+            "internetEgressRule": {
+              "name": "allow-spoke-internet-egress",
+              "description": "Permit spoke address spaces to reach the public Internet through the firewall",
+              "sourceAddresses": "[parameters('allowedSpokePrefixes')]",
+              "destinationAddresses": [
+                "Internet"
+              ],
+              "destinationPorts": [
+                "*"
+              ],
+              "protocols": [
+                "Any"
+              ]
+            },
+            "networkRuleCollections": "[if(equals(length(parameters('allowedSpokePrefixes')), 0), createArray(), createArray(createObject('name', format('{0}-intra-spoke', parameters('firewallName')), 'properties', createObject('priority', 200, 'action', createObject('type', 'Allow'), 'rules', createArray(variables('eastWestRule'), variables('internetEgressRule'))))))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('vnetName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": "[parameters('addressPrefixes')]"
+                },
+                "subnets": "[variables('hubSubnets')]"
+              }
+            },
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('firewallPublicIpName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "idleTimeoutInMinutes": 10
+              }
+            },
+            {
+              "type": "Microsoft.Network/azureFirewalls",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('firewallName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "AZFW_VNet",
+                  "tier": "Standard"
+                },
+                "threatIntelMode": "Alert",
+                "ipConfigurations": [
+                  {
+                    "name": "azureFirewallIpConfig",
+                    "properties": {
+                      "subnet": {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'AzureFirewallSubnet')]"
+                      },
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('firewallPublicIpName'))]"
+                      }
+                    }
+                  }
+                ],
+                "networkRuleCollections": "[variables('networkRuleCollections')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('firewallPublicIpName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "hubVnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+            },
+            "hubVnetName": {
+              "type": "string",
+              "value": "[parameters('vnetName')]"
+            },
+            "firewallId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/azureFirewalls', parameters('firewallName'))]"
+            },
+            "firewallPrivateIp": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/azureFirewalls', parameters('firewallName')), '2023-05-01').ipConfigurations[0].properties.privateIPAddress]"
+            },
+            "firewallSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'AzureFirewallSubnet')]"
+            },
+            "firewallPublicIpId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('firewallPublicIpName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('swedenCentral').resourceGroupName)]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name))]",
+      "resourceGroup": "[parameters('westEurope').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "vnetName": {
+            "value": "[parameters('westEurope').hub.name]"
+          },
+          "location": {
+            "value": "[parameters('westEurope').location]"
+          },
+          "addressPrefixes": {
+            "value": "[parameters('westEurope').hub.addressPrefixes]"
+          },
+          "firewallSubnetPrefix": {
+            "value": "[parameters('westEurope').hub.firewallSubnetPrefix]"
+          },
+          "firewallName": {
+            "value": "[parameters('westEurope').hub.firewallName]"
+          },
+          "firewallPublicIpName": {
+            "value": "[parameters('westEurope').hub.firewallPublicIpName]"
+          },
+          "allowedSpokePrefixes": {
+            "value": "[variables('westAllowedPrefixes')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "14414000753167157804"
+            }
+          },
+          "parameters": {
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the hub virtual network."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for hub resources."
+              }
+            },
+            "addressPrefixes": {
+              "type": "array",
+              "metadata": {
+                "description": "Address prefixes assigned to the hub virtual network."
+              }
+            },
+            "firewallSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Address prefix reserved for the Azure Firewall subnet."
+              }
+            },
+            "firewallManagementSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional address prefix for the Azure Firewall management subnet."
+              }
+            },
+            "firewallName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure Firewall resource."
+              }
+            },
+            "firewallPublicIpName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the public IP address resource for the Azure Firewall."
+              }
+            },
+            "allowedSpokePrefixes": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "CIDR ranges that should be permitted to traverse the hub firewall."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to hub resources."
+              }
+            }
+          },
+          "variables": {
+            "managementSubnet": "[if(empty(parameters('firewallManagementSubnetPrefix')), createArray(), createArray(createObject('name', 'AzureFirewallManagementSubnet', 'properties', createObject('addressPrefix', parameters('firewallManagementSubnetPrefix')))))]",
+            "hubSubnets": "[concat(createArray(createObject('name', 'AzureFirewallSubnet', 'properties', createObject('addressPrefix', parameters('firewallSubnetPrefix')))), variables('managementSubnet'))]",
+            "eastWestRule": {
+              "name": "allow-internal-east-west",
+              "description": "Allow east-west traffic between regional spokes",
+              "sourceAddresses": "[parameters('allowedSpokePrefixes')]",
+              "destinationAddresses": "[parameters('allowedSpokePrefixes')]",
+              "destinationPorts": [
+                "*"
+              ],
+              "protocols": [
+                "Any"
+              ]
+            },
+            "internetEgressRule": {
+              "name": "allow-spoke-internet-egress",
+              "description": "Permit spoke address spaces to reach the public Internet through the firewall",
+              "sourceAddresses": "[parameters('allowedSpokePrefixes')]",
+              "destinationAddresses": [
+                "Internet"
+              ],
+              "destinationPorts": [
+                "*"
+              ],
+              "protocols": [
+                "Any"
+              ]
+            },
+            "networkRuleCollections": "[if(equals(length(parameters('allowedSpokePrefixes')), 0), createArray(), createArray(createObject('name', format('{0}-intra-spoke', parameters('firewallName')), 'properties', createObject('priority', 200, 'action', createObject('type', 'Allow'), 'rules', createArray(variables('eastWestRule'), variables('internetEgressRule'))))))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('vnetName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": "[parameters('addressPrefixes')]"
+                },
+                "subnets": "[variables('hubSubnets')]"
+              }
+            },
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('firewallPublicIpName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "idleTimeoutInMinutes": 10
+              }
+            },
+            {
+              "type": "Microsoft.Network/azureFirewalls",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('firewallName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "AZFW_VNet",
+                  "tier": "Standard"
+                },
+                "threatIntelMode": "Alert",
+                "ipConfigurations": [
+                  {
+                    "name": "azureFirewallIpConfig",
+                    "properties": {
+                      "subnet": {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'AzureFirewallSubnet')]"
+                      },
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('firewallPublicIpName'))]"
+                      }
+                    }
+                  }
+                ],
+                "networkRuleCollections": "[variables('networkRuleCollections')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('firewallPublicIpName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "hubVnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+            },
+            "hubVnetName": {
+              "type": "string",
+              "value": "[parameters('vnetName')]"
+            },
+            "firewallId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/azureFirewalls', parameters('firewallName'))]"
+            },
+            "firewallPrivateIp": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/azureFirewalls', parameters('firewallName')), '2023-05-01').ipConfigurations[0].properties.privateIPAddress]"
+            },
+            "firewallSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'AzureFirewallSubnet')]"
+            },
+            "firewallPublicIpId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('firewallPublicIpName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('westEurope').resourceGroupName)]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-spoke', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').spoke.name))]",
+      "resourceGroup": "[parameters('swedenCentral').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "vnetName": {
+            "value": "[parameters('swedenCentral').spoke.name]"
+          },
+          "location": {
+            "value": "[parameters('swedenCentral').location]"
+          },
+          "addressPrefixes": {
+            "value": "[parameters('swedenCentral').spoke.addressPrefixes]"
+          },
+          "appSubnetName": {
+            "value": "[parameters('swedenCentral').spoke.appSubnetName]"
+          },
+          "appSubnetPrefix": {
+            "value": "[parameters('swedenCentral').spoke.appSubnetPrefix]"
+          },
+          "postgresSubnetName": {
+            "value": "[parameters('swedenCentral').spoke.postgresSubnetName]"
+          },
+          "postgresSubnetPrefix": {
+            "value": "[parameters('swedenCentral').spoke.postgresSubnetPrefix]"
+          },
+          "routeTableName": {
+            "value": "[parameters('swedenCentral').spoke.routeTableName]"
+          },
+          "firewallPrivateIp": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name))), '2025-04-01').outputs.firewallPrivateIp.value]"
+          },
+          "remoteSpokePrefixes": {
+            "value": "[parameters('westEurope').spoke.addressPrefixes]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "7992026708663682132"
+            }
+          },
+          "parameters": {
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the spoke virtual network."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for spoke resources."
+              }
+            },
+            "addressPrefixes": {
+              "type": "array",
+              "metadata": {
+                "description": "Address prefixes assigned to the spoke virtual network."
+              }
+            },
+            "appSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the application subnet."
+              }
+            },
+            "appSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "CIDR prefix for the application subnet."
+              }
+            },
+            "postgresSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the PostgreSQL delegated subnet."
+              }
+            },
+            "postgresSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "CIDR prefix for the PostgreSQL delegated subnet."
+              }
+            },
+            "routeTableName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the route table applied to spoke subnets."
+              }
+            },
+            "firewallPrivateIp": {
+              "type": "string",
+              "metadata": {
+                "description": "Private IP address of the regional hub firewall used as next hop."
+              }
+            },
+            "remoteSpokePrefixes": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Remote spoke address prefixes that should route through the firewall."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to spoke resources."
+              }
+            }
+          },
+          "variables": {
+            "copy": [
+              {
+                "name": "remoteRoutes",
+                "count": "[length(parameters('remoteSpokePrefixes'))]",
+                "input": {
+                  "name": "[if(greater(length(format('to-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-')))), 80), substring(format('to-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-'))), 0, 80), format('to-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-'))))]",
+                  "properties": {
+                    "addressPrefix": "[parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')]]",
+                    "nextHopType": "VirtualAppliance",
+                    "nextHopIpAddress": "[parameters('firewallPrivateIp')]"
+                  }
+                }
+              }
+            ],
+            "routes": "[concat(createArray(createObject('name', 'default-to-firewall', 'properties', createObject('addressPrefix', '0.0.0.0/0', 'nextHopType', 'VirtualAppliance', 'nextHopIpAddress', parameters('firewallPrivateIp')))), variables('remoteRoutes'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/routeTables",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('routeTableName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "disableBgpRoutePropagation": false,
+                "routes": "[variables('routes')]"
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('vnetName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": "[parameters('addressPrefixes')]"
+                },
+                "subnets": [
+                  {
+                    "name": "[parameters('appSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('appSubnetPrefix')]",
+                      "routeTable": {
+                        "id": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+                      }
+                    }
+                  },
+                  {
+                    "name": "[parameters('postgresSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('postgresSubnetPrefix')]",
+                      "delegations": [
+                        {
+                          "name": "pg-flexible-delegation",
+                          "properties": {
+                            "serviceName": "Microsoft.DBforPostgreSQL/flexibleServers"
+                          }
+                        }
+                      ],
+                      "privateEndpointNetworkPolicies": "Disabled",
+                      "privateLinkServiceNetworkPolicies": "Disabled",
+                      "routeTable": {
+                        "id": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "spokeVnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+            },
+            "appSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('appSubnetName'))]"
+            },
+            "postgresSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('postgresSubnetName'))]"
+            },
+            "routeTableId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('swedenCentral').resourceGroupName)]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-spoke', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').spoke.name))]",
+      "resourceGroup": "[parameters('westEurope').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "vnetName": {
+            "value": "[parameters('westEurope').spoke.name]"
+          },
+          "location": {
+            "value": "[parameters('westEurope').location]"
+          },
+          "addressPrefixes": {
+            "value": "[parameters('westEurope').spoke.addressPrefixes]"
+          },
+          "appSubnetName": {
+            "value": "[parameters('westEurope').spoke.appSubnetName]"
+          },
+          "appSubnetPrefix": {
+            "value": "[parameters('westEurope').spoke.appSubnetPrefix]"
+          },
+          "postgresSubnetName": {
+            "value": "[parameters('westEurope').spoke.postgresSubnetName]"
+          },
+          "postgresSubnetPrefix": {
+            "value": "[parameters('westEurope').spoke.postgresSubnetPrefix]"
+          },
+          "routeTableName": {
+            "value": "[parameters('westEurope').spoke.routeTableName]"
+          },
+          "firewallPrivateIp": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name))), '2025-04-01').outputs.firewallPrivateIp.value]"
+          },
+          "remoteSpokePrefixes": {
+            "value": "[parameters('swedenCentral').spoke.addressPrefixes]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "7992026708663682132"
+            }
+          },
+          "parameters": {
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the spoke virtual network."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for spoke resources."
+              }
+            },
+            "addressPrefixes": {
+              "type": "array",
+              "metadata": {
+                "description": "Address prefixes assigned to the spoke virtual network."
+              }
+            },
+            "appSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the application subnet."
+              }
+            },
+            "appSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "CIDR prefix for the application subnet."
+              }
+            },
+            "postgresSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the PostgreSQL delegated subnet."
+              }
+            },
+            "postgresSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "CIDR prefix for the PostgreSQL delegated subnet."
+              }
+            },
+            "routeTableName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the route table applied to spoke subnets."
+              }
+            },
+            "firewallPrivateIp": {
+              "type": "string",
+              "metadata": {
+                "description": "Private IP address of the regional hub firewall used as next hop."
+              }
+            },
+            "remoteSpokePrefixes": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Remote spoke address prefixes that should route through the firewall."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to spoke resources."
+              }
+            }
+          },
+          "variables": {
+            "copy": [
+              {
+                "name": "remoteRoutes",
+                "count": "[length(parameters('remoteSpokePrefixes'))]",
+                "input": {
+                  "name": "[if(greater(length(format('to-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-')))), 80), substring(format('to-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-'))), 0, 80), format('to-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-'))))]",
+                  "properties": {
+                    "addressPrefix": "[parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')]]",
+                    "nextHopType": "VirtualAppliance",
+                    "nextHopIpAddress": "[parameters('firewallPrivateIp')]"
+                  }
+                }
+              }
+            ],
+            "routes": "[concat(createArray(createObject('name', 'default-to-firewall', 'properties', createObject('addressPrefix', '0.0.0.0/0', 'nextHopType', 'VirtualAppliance', 'nextHopIpAddress', parameters('firewallPrivateIp')))), variables('remoteRoutes'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/routeTables",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('routeTableName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "disableBgpRoutePropagation": false,
+                "routes": "[variables('routes')]"
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('vnetName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": "[parameters('addressPrefixes')]"
+                },
+                "subnets": [
+                  {
+                    "name": "[parameters('appSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('appSubnetPrefix')]",
+                      "routeTable": {
+                        "id": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+                      }
+                    }
+                  },
+                  {
+                    "name": "[parameters('postgresSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('postgresSubnetPrefix')]",
+                      "delegations": [
+                        {
+                          "name": "pg-flexible-delegation",
+                          "properties": {
+                            "serviceName": "Microsoft.DBforPostgreSQL/flexibleServers"
+                          }
+                        }
+                      ],
+                      "privateEndpointNetworkPolicies": "Disabled",
+                      "privateLinkServiceNetworkPolicies": "Disabled",
+                      "routeTable": {
+                        "id": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "spokeVnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+            },
+            "appSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('appSubnetName'))]"
+            },
+            "postgresSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('postgresSubnetName'))]"
+            },
+            "routeTableId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('westEurope').resourceGroupName)]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-hub-to-hub', uniqueString(parameters('swedenCentral').hub.name, parameters('westEurope').hub.name))]",
+      "resourceGroup": "[parameters('swedenCentral').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "localVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name))), '2025-04-01').outputs.hubVnetId.value]"
+          },
+          "peeringName": {
+            "value": "[format('to-{0}', parameters('westEurope').hub.name)]"
+          },
+          "remoteVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name))), '2025-04-01').outputs.hubVnetId.value]"
+          },
+          "allowGatewayTransit": {
+            "value": false
+          },
+          "useRemoteGateways": {
+            "value": false
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "5406795886217969065"
+            }
+          },
+          "parameters": {
+            "localVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the local virtual network."
+              }
+            },
+            "peeringName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name assigned to the VNet peering resource."
+              }
+            },
+            "remoteVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the remote virtual network to peer with."
+              }
+            },
+            "allowForwardedTraffic": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow forwarded traffic across the peering connection."
+              }
+            },
+            "allowGatewayTransit": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Allow gateway transit on the peering connection."
+              }
+            },
+            "useRemoteGateways": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Use remote gateways from the peered virtual network."
+              }
+            },
+            "allowVirtualNetworkAccess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow virtual network access across the peering connection."
+              }
+            }
+          },
+          "variables": {
+            "localVnetName": "[last(split(parameters('localVnetId'), '/'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', variables('localVnetName'), parameters('peeringName'))]",
+              "properties": {
+                "remoteVirtualNetwork": {
+                  "id": "[parameters('remoteVnetId')]"
+                },
+                "allowVirtualNetworkAccess": "[parameters('allowVirtualNetworkAccess')]",
+                "allowForwardedTraffic": "[parameters('allowForwardedTraffic')]",
+                "allowGatewayTransit": "[parameters('allowGatewayTransit')]",
+                "useRemoteGateways": "[parameters('useRemoteGateways')]"
+              }
+            }
+          ],
+          "outputs": {
+            "peeringId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/virtualNetworkPeerings', variables('localVnetName'), parameters('peeringName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('swedenCentral').resourceGroupName)]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name)))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-hub-to-hub', uniqueString(parameters('westEurope').hub.name, parameters('swedenCentral').hub.name))]",
+      "resourceGroup": "[parameters('westEurope').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "localVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name))), '2025-04-01').outputs.hubVnetId.value]"
+          },
+          "peeringName": {
+            "value": "[format('to-{0}', parameters('swedenCentral').hub.name)]"
+          },
+          "remoteVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name))), '2025-04-01').outputs.hubVnetId.value]"
+          },
+          "allowGatewayTransit": {
+            "value": false
+          },
+          "useRemoteGateways": {
+            "value": false
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "5406795886217969065"
+            }
+          },
+          "parameters": {
+            "localVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the local virtual network."
+              }
+            },
+            "peeringName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name assigned to the VNet peering resource."
+              }
+            },
+            "remoteVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the remote virtual network to peer with."
+              }
+            },
+            "allowForwardedTraffic": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow forwarded traffic across the peering connection."
+              }
+            },
+            "allowGatewayTransit": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Allow gateway transit on the peering connection."
+              }
+            },
+            "useRemoteGateways": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Use remote gateways from the peered virtual network."
+              }
+            },
+            "allowVirtualNetworkAccess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow virtual network access across the peering connection."
+              }
+            }
+          },
+          "variables": {
+            "localVnetName": "[last(split(parameters('localVnetId'), '/'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', variables('localVnetName'), parameters('peeringName'))]",
+              "properties": {
+                "remoteVirtualNetwork": {
+                  "id": "[parameters('remoteVnetId')]"
+                },
+                "allowVirtualNetworkAccess": "[parameters('allowVirtualNetworkAccess')]",
+                "allowForwardedTraffic": "[parameters('allowForwardedTraffic')]",
+                "allowGatewayTransit": "[parameters('allowGatewayTransit')]",
+                "useRemoteGateways": "[parameters('useRemoteGateways')]"
+              }
+            }
+          ],
+          "outputs": {
+            "peeringId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/virtualNetworkPeerings', variables('localVnetName'), parameters('peeringName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name)))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('westEurope').resourceGroupName)]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-hub-to-spoke', uniqueString(parameters('swedenCentral').hub.name, parameters('swedenCentral').spoke.name))]",
+      "resourceGroup": "[parameters('swedenCentral').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "localVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name))), '2025-04-01').outputs.hubVnetId.value]"
+          },
+          "peeringName": {
+            "value": "[format('to-{0}', parameters('swedenCentral').spoke.name)]"
+          },
+          "remoteVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-spoke', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').spoke.name))), '2025-04-01').outputs.spokeVnetId.value]"
+          },
+          "allowGatewayTransit": {
+            "value": true
+          },
+          "useRemoteGateways": {
+            "value": false
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "5406795886217969065"
+            }
+          },
+          "parameters": {
+            "localVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the local virtual network."
+              }
+            },
+            "peeringName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name assigned to the VNet peering resource."
+              }
+            },
+            "remoteVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the remote virtual network to peer with."
+              }
+            },
+            "allowForwardedTraffic": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow forwarded traffic across the peering connection."
+              }
+            },
+            "allowGatewayTransit": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Allow gateway transit on the peering connection."
+              }
+            },
+            "useRemoteGateways": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Use remote gateways from the peered virtual network."
+              }
+            },
+            "allowVirtualNetworkAccess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow virtual network access across the peering connection."
+              }
+            }
+          },
+          "variables": {
+            "localVnetName": "[last(split(parameters('localVnetId'), '/'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', variables('localVnetName'), parameters('peeringName'))]",
+              "properties": {
+                "remoteVirtualNetwork": {
+                  "id": "[parameters('remoteVnetId')]"
+                },
+                "allowVirtualNetworkAccess": "[parameters('allowVirtualNetworkAccess')]",
+                "allowForwardedTraffic": "[parameters('allowForwardedTraffic')]",
+                "allowGatewayTransit": "[parameters('allowGatewayTransit')]",
+                "useRemoteGateways": "[parameters('useRemoteGateways')]"
+              }
+            }
+          ],
+          "outputs": {
+            "peeringId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/virtualNetworkPeerings', variables('localVnetName'), parameters('peeringName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('swedenCentral').resourceGroupName)]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name)))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-spoke', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').spoke.name)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-spoke-to-hub', uniqueString(parameters('swedenCentral').spoke.name, parameters('swedenCentral').hub.name))]",
+      "resourceGroup": "[parameters('swedenCentral').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "localVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-spoke', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').spoke.name))), '2025-04-01').outputs.spokeVnetId.value]"
+          },
+          "peeringName": {
+            "value": "[format('to-{0}', parameters('swedenCentral').hub.name)]"
+          },
+          "remoteVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name))), '2025-04-01').outputs.hubVnetId.value]"
+          },
+          "allowGatewayTransit": {
+            "value": false
+          },
+          "useRemoteGateways": {
+            "value": false
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "5406795886217969065"
+            }
+          },
+          "parameters": {
+            "localVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the local virtual network."
+              }
+            },
+            "peeringName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name assigned to the VNet peering resource."
+              }
+            },
+            "remoteVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the remote virtual network to peer with."
+              }
+            },
+            "allowForwardedTraffic": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow forwarded traffic across the peering connection."
+              }
+            },
+            "allowGatewayTransit": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Allow gateway transit on the peering connection."
+              }
+            },
+            "useRemoteGateways": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Use remote gateways from the peered virtual network."
+              }
+            },
+            "allowVirtualNetworkAccess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow virtual network access across the peering connection."
+              }
+            }
+          },
+          "variables": {
+            "localVnetName": "[last(split(parameters('localVnetId'), '/'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', variables('localVnetName'), parameters('peeringName'))]",
+              "properties": {
+                "remoteVirtualNetwork": {
+                  "id": "[parameters('remoteVnetId')]"
+                },
+                "allowVirtualNetworkAccess": "[parameters('allowVirtualNetworkAccess')]",
+                "allowForwardedTraffic": "[parameters('allowForwardedTraffic')]",
+                "allowGatewayTransit": "[parameters('allowGatewayTransit')]",
+                "useRemoteGateways": "[parameters('useRemoteGateways')]"
+              }
+            }
+          ],
+          "outputs": {
+            "peeringId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/virtualNetworkPeerings', variables('localVnetName'), parameters('peeringName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('swedenCentral').resourceGroupName)]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name)))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-spoke', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').spoke.name)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-hub-to-spoke', uniqueString(parameters('westEurope').hub.name, parameters('westEurope').spoke.name))]",
+      "resourceGroup": "[parameters('westEurope').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "localVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name))), '2025-04-01').outputs.hubVnetId.value]"
+          },
+          "peeringName": {
+            "value": "[format('to-{0}', parameters('westEurope').spoke.name)]"
+          },
+          "remoteVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-spoke', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').spoke.name))), '2025-04-01').outputs.spokeVnetId.value]"
+          },
+          "allowGatewayTransit": {
+            "value": true
+          },
+          "useRemoteGateways": {
+            "value": false
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "5406795886217969065"
+            }
+          },
+          "parameters": {
+            "localVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the local virtual network."
+              }
+            },
+            "peeringName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name assigned to the VNet peering resource."
+              }
+            },
+            "remoteVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the remote virtual network to peer with."
+              }
+            },
+            "allowForwardedTraffic": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow forwarded traffic across the peering connection."
+              }
+            },
+            "allowGatewayTransit": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Allow gateway transit on the peering connection."
+              }
+            },
+            "useRemoteGateways": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Use remote gateways from the peered virtual network."
+              }
+            },
+            "allowVirtualNetworkAccess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow virtual network access across the peering connection."
+              }
+            }
+          },
+          "variables": {
+            "localVnetName": "[last(split(parameters('localVnetId'), '/'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', variables('localVnetName'), parameters('peeringName'))]",
+              "properties": {
+                "remoteVirtualNetwork": {
+                  "id": "[parameters('remoteVnetId')]"
+                },
+                "allowVirtualNetworkAccess": "[parameters('allowVirtualNetworkAccess')]",
+                "allowForwardedTraffic": "[parameters('allowForwardedTraffic')]",
+                "allowGatewayTransit": "[parameters('allowGatewayTransit')]",
+                "useRemoteGateways": "[parameters('useRemoteGateways')]"
+              }
+            }
+          ],
+          "outputs": {
+            "peeringId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/virtualNetworkPeerings', variables('localVnetName'), parameters('peeringName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('westEurope').resourceGroupName)]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name)))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-spoke', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').spoke.name)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-spoke-to-hub', uniqueString(parameters('westEurope').spoke.name, parameters('westEurope').hub.name))]",
+      "resourceGroup": "[parameters('westEurope').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "localVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-spoke', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').spoke.name))), '2025-04-01').outputs.spokeVnetId.value]"
+          },
+          "peeringName": {
+            "value": "[format('to-{0}', parameters('westEurope').hub.name)]"
+          },
+          "remoteVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name))), '2025-04-01').outputs.hubVnetId.value]"
+          },
+          "allowGatewayTransit": {
+            "value": false
+          },
+          "useRemoteGateways": {
+            "value": false
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "5406795886217969065"
+            }
+          },
+          "parameters": {
+            "localVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the local virtual network."
+              }
+            },
+            "peeringName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name assigned to the VNet peering resource."
+              }
+            },
+            "remoteVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the remote virtual network to peer with."
+              }
+            },
+            "allowForwardedTraffic": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow forwarded traffic across the peering connection."
+              }
+            },
+            "allowGatewayTransit": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Allow gateway transit on the peering connection."
+              }
+            },
+            "useRemoteGateways": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Use remote gateways from the peered virtual network."
+              }
+            },
+            "allowVirtualNetworkAccess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow virtual network access across the peering connection."
+              }
+            }
+          },
+          "variables": {
+            "localVnetName": "[last(split(parameters('localVnetId'), '/'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', variables('localVnetName'), parameters('peeringName'))]",
+              "properties": {
+                "remoteVirtualNetwork": {
+                  "id": "[parameters('remoteVnetId')]"
+                },
+                "allowVirtualNetworkAccess": "[parameters('allowVirtualNetworkAccess')]",
+                "allowForwardedTraffic": "[parameters('allowForwardedTraffic')]",
+                "allowGatewayTransit": "[parameters('allowGatewayTransit')]",
+                "useRemoteGateways": "[parameters('useRemoteGateways')]"
+              }
+            }
+          ],
+          "outputs": {
+            "peeringId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/virtualNetworkPeerings', variables('localVnetName'), parameters('peeringName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('westEurope').resourceGroupName)]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name)))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-spoke', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').spoke.name)))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "swedenHubFirewallIp": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name))), '2025-04-01').outputs.firewallPrivateIp.value]"
+    },
+    "westHubFirewallIp": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name))), '2025-04-01').outputs.firewallPrivateIp.value]"
+    }
+  }
+}
