@@ -28,6 +28,7 @@ Spoke (Sweden Central) -> Hub Firewall (Sweden Central) --
 | modules/hubWithFirewall.bicep | Builds a hub VNet, AzureFirewallSubnet, optional management subnet, static public IP, and an Azure Firewall Standard instance with an east-west allow network rule collection. |
 | modules/spoke.bicep | Deploys a spoke VNet with an application subnet, PostgreSQL delegated subnet, shared route table, and routes targeting the regional firewall. |
 | modules/vnetPeering.bicep | Creates VNet peering relationships (hub↔hub, hub↔spoke) with configurable flags for forwarded traffic and gateway transit. |
+| modules/firewallSubnetRoutes.bicep | Attaches a dedicated route table to the AzureFirewallSubnet with default Internet egress and remote-spoke routes pointing to the opposite-region firewall. |
 | parameters/ | Reserved for optional parameter files (e.g., .json) when overriding defaults. |
 
 ---
@@ -51,6 +52,11 @@ Spoke (Sweden Central) -> Hub Firewall (Sweden Central) --
 - **User-Defined Routes**
   - 0.0.0.0/0 → hub firewall private IP (per region).
   - Opposite-region spoke CIDR (e.g., 10.21.0.0/16 in Sweden Central) → hub firewall private IP.
+- **Firewall Subnet Route Table**
+  - Associates the hub `AzureFirewallSubnet` with a custom route table.
+  - Adds `0.0.0.0/0 → Internet` to prefer public egress over the remote firewall.
+  - Adds opposite-region spoke CIDRs → remote hub firewall private IP for cross-region return paths.
+  - Azure periodically blocks custom route tables on firewall subnets; if deployment fails, remove this module or re-evaluate the design.
 - **Azure Firewall**
   - Standard tier, threat intelligence mode Alert.
   - Network rule collection <firewallName>-intra-spoke with:
@@ -149,6 +155,7 @@ The subscription deployment automatically creates (or updates) the two resource 
 
 - **Connectivity tests**: Use Azure Network Watcher (Test-AzNetworkWatcherConnectivity) or VM-based tests to verify that traffic between spokes traverses the firewalls successfully.
 - **Route checks**: Confirm that both spoke subnets are associated with the generated route tables and that effective routes point to the firewall private IP.
+- **Firewall subnet routes**: Ensure the `AzureFirewallSubnet` shows the custom route table with the Internet and remote-firewall routes (omit if the platform rejects the association).
 - **Subnet delegation**: Run az network vnet subnet show to ensure the data subnet is delegated to PostgreSQL Flexible Server.
 - **Firewall health**: Review firewall provisioning state and consider attaching diagnostic settings for logging.
 

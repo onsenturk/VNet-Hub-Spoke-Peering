@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "11729926745129949190"
+      "templateHash": "12449087246354400679"
     }
   },
   "parameters": {
@@ -35,7 +35,8 @@
           ],
           "firewallSubnetPrefix": "10.10.0.0/24",
           "firewallName": "[format('{0}-sc-azfw', parameters('prefix'))]",
-          "firewallPublicIpName": "[format('{0}-sc-azfw-pip', parameters('prefix'))]"
+          "firewallPublicIpName": "[format('{0}-sc-azfw-pip', parameters('prefix'))]",
+          "firewallRouteTableName": "[format('{0}-sc-fw-udr', parameters('prefix'))]"
         },
         "spoke": {
           "name": "[format('{0}-sc-spoke-vnet', parameters('prefix'))]",
@@ -65,7 +66,8 @@
           ],
           "firewallSubnetPrefix": "10.20.0.0/24",
           "firewallName": "[format('{0}-we-azfw', parameters('prefix'))]",
-          "firewallPublicIpName": "[format('{0}-we-azfw-pip', parameters('prefix'))]"
+          "firewallPublicIpName": "[format('{0}-we-azfw-pip', parameters('prefix'))]",
+          "firewallRouteTableName": "[format('{0}-we-fw-udr', parameters('prefix'))]"
         },
         "spoke": {
           "name": "[format('{0}-we-spoke-vnet', parameters('prefix'))]",
@@ -556,6 +558,304 @@
         }
       },
       "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('westEurope').resourceGroupName)]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-sc-fw-udr', uniqueString(parameters('swedenCentral').hub.name, parameters('westEurope').hub.name))]",
+      "resourceGroup": "[parameters('swedenCentral').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "vnetName": {
+            "value": "[parameters('swedenCentral').hub.name]"
+          },
+          "location": {
+            "value": "[parameters('swedenCentral').location]"
+          },
+          "routeTableName": {
+            "value": "[parameters('swedenCentral').hub.firewallRouteTableName]"
+          },
+          "firewallSubnetPrefix": {
+            "value": "[parameters('swedenCentral').hub.firewallSubnetPrefix]"
+          },
+          "remoteSpokePrefixes": {
+            "value": "[parameters('westEurope').spoke.addressPrefixes]"
+          },
+          "remoteFirewallIp": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name))), '2025-04-01').outputs.firewallPrivateIp.value]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "14046840674713388532"
+            }
+          },
+          "parameters": {
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the hub virtual network that hosts the Azure Firewall."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the route table resource."
+              }
+            },
+            "routeTableName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the route table applied to the firewall subnet."
+              }
+            },
+            "firewallSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "CIDR prefix for the Azure Firewall subnet."
+              }
+            },
+            "remoteSpokePrefixes": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Remote spoke address prefixes that should route through the destination firewall."
+              }
+            },
+            "remoteFirewallIp": {
+              "type": "string",
+              "metadata": {
+                "description": "Private IP address of the remote hub firewall acting as next hop for cross-region traffic."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags applied to created resources."
+              }
+            }
+          },
+          "variables": {
+            "copy": [
+              {
+                "name": "remoteRoutes",
+                "count": "[length(parameters('remoteSpokePrefixes'))]",
+                "input": {
+                  "name": "[if(greater(length(format('to-remote-fw-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-')))), 80), substring(format('to-remote-fw-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-'))), 0, 80), format('to-remote-fw-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-'))))]",
+                  "properties": {
+                    "addressPrefix": "[parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')]]",
+                    "nextHopType": "VirtualAppliance",
+                    "nextHopIpAddress": "[parameters('remoteFirewallIp')]"
+                  }
+                }
+              }
+            ],
+            "routes": "[concat(createArray(createObject('name', 'default-to-internet', 'properties', createObject('addressPrefix', '0.0.0.0/0', 'nextHopType', 'Internet'))), variables('remoteRoutes'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/routeTables",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('routeTableName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "disableBgpRoutePropagation": false,
+                "routes": "[variables('routes')]"
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', parameters('vnetName'), 'AzureFirewallSubnet')]",
+              "properties": {
+                "addressPrefix": "[parameters('firewallSubnetPrefix')]",
+                "routeTable": {
+                  "id": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+                },
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Disabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "routeTableId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('swedenCentral').resourceGroupName)]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('westEurope').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('westEurope').resourceGroupName, parameters('westEurope').hub.name)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-we-fw-udr', uniqueString(parameters('westEurope').hub.name, parameters('swedenCentral').hub.name))]",
+      "resourceGroup": "[parameters('westEurope').resourceGroupName]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "vnetName": {
+            "value": "[parameters('westEurope').hub.name]"
+          },
+          "location": {
+            "value": "[parameters('westEurope').location]"
+          },
+          "routeTableName": {
+            "value": "[parameters('westEurope').hub.firewallRouteTableName]"
+          },
+          "firewallSubnetPrefix": {
+            "value": "[parameters('westEurope').hub.firewallSubnetPrefix]"
+          },
+          "remoteSpokePrefixes": {
+            "value": "[parameters('swedenCentral').spoke.addressPrefixes]"
+          },
+          "remoteFirewallIp": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name))), '2025-04-01').outputs.firewallPrivateIp.value]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "14046840674713388532"
+            }
+          },
+          "parameters": {
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the hub virtual network that hosts the Azure Firewall."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the route table resource."
+              }
+            },
+            "routeTableName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the route table applied to the firewall subnet."
+              }
+            },
+            "firewallSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "CIDR prefix for the Azure Firewall subnet."
+              }
+            },
+            "remoteSpokePrefixes": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Remote spoke address prefixes that should route through the destination firewall."
+              }
+            },
+            "remoteFirewallIp": {
+              "type": "string",
+              "metadata": {
+                "description": "Private IP address of the remote hub firewall acting as next hop for cross-region traffic."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags applied to created resources."
+              }
+            }
+          },
+          "variables": {
+            "copy": [
+              {
+                "name": "remoteRoutes",
+                "count": "[length(parameters('remoteSpokePrefixes'))]",
+                "input": {
+                  "name": "[if(greater(length(format('to-remote-fw-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-')))), 80), substring(format('to-remote-fw-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-'))), 0, 80), format('to-remote-fw-{0}', toLower(replace(replace(parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')], '.', '-'), '/', '-'))))]",
+                  "properties": {
+                    "addressPrefix": "[parameters('remoteSpokePrefixes')[copyIndex('remoteRoutes')]]",
+                    "nextHopType": "VirtualAppliance",
+                    "nextHopIpAddress": "[parameters('remoteFirewallIp')]"
+                  }
+                }
+              }
+            ],
+            "routes": "[concat(createArray(createObject('name', 'default-to-internet', 'properties', createObject('addressPrefix', '0.0.0.0/0', 'nextHopType', 'Internet'))), variables('remoteRoutes'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/routeTables",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('routeTableName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "disableBgpRoutePropagation": false,
+                "routes": "[variables('routes')]"
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', parameters('vnetName'), 'AzureFirewallSubnet')]",
+              "properties": {
+                "addressPrefix": "[parameters('firewallSubnetPrefix')]",
+                "routeTable": {
+                  "id": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+                },
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Disabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "routeTableId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('swedenCentral').resourceGroupName), 'Microsoft.Resources/deployments', format('{0}-hub', uniqueString(parameters('swedenCentral').resourceGroupName, parameters('swedenCentral').hub.name)))]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('westEurope').resourceGroupName)]"
       ]
     },

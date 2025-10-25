@@ -18,6 +18,7 @@ param swedenCentral object = {
 		firewallSubnetPrefix: '10.10.0.0/24'
 		firewallName: '${prefix}-sc-azfw'
 		firewallPublicIpName: '${prefix}-sc-azfw-pip'
+		firewallRouteTableName: '${prefix}-sc-fw-udr'
 	}
 	spoke: {
 		name: '${prefix}-sc-spoke-vnet'
@@ -44,6 +45,7 @@ param westEurope object = {
 		firewallSubnetPrefix: '10.20.0.0/24'
 		firewallName: '${prefix}-we-azfw'
 		firewallPublicIpName: '${prefix}-we-azfw-pip'
+		firewallRouteTableName: '${prefix}-we-fw-udr'
 	}
 	spoke: {
 		name: '${prefix}-we-spoke-vnet'
@@ -71,6 +73,7 @@ var westAllowedPrefixes = concat(
 	westEurope.hub.addressPrefixes,
 	swedenCentral.hub.addressPrefixes
 )
+
 
 resource swedenCentralRg 'Microsoft.Resources/resourceGroups@2022-09-01' = {
 	name: swedenCentral.resourceGroupName
@@ -113,6 +116,35 @@ module westHub 'modules/hubWithFirewall.bicep' = {
 		tags: tags
 	}
 }
+
+module swedenFirewallRoutes 'modules/firewallSubnetRoutes.bicep' = {
+	name: '${uniqueString(swedenCentral.hub.name, westEurope.hub.name)}-sc-fw-udr'
+	scope: swedenCentralRg
+	params: {
+		vnetName: swedenCentral.hub.name
+		location: swedenCentral.location
+		routeTableName: swedenCentral.hub.firewallRouteTableName
+		firewallSubnetPrefix: swedenCentral.hub.firewallSubnetPrefix
+		remoteSpokePrefixes: westEurope.spoke.addressPrefixes
+		remoteFirewallIp: westHub.outputs.firewallPrivateIp
+		tags: tags
+	}
+}
+
+module westFirewallRoutes 'modules/firewallSubnetRoutes.bicep' = {
+	name: '${uniqueString(westEurope.hub.name, swedenCentral.hub.name)}-we-fw-udr'
+	scope: westEuropeRg
+	params: {
+		vnetName: westEurope.hub.name
+		location: westEurope.location
+		routeTableName: westEurope.hub.firewallRouteTableName
+		firewallSubnetPrefix: westEurope.hub.firewallSubnetPrefix
+		remoteSpokePrefixes: swedenCentral.spoke.addressPrefixes
+		remoteFirewallIp: swedenHub.outputs.firewallPrivateIp
+		tags: tags
+	}
+}
+
 
 module swedenSpoke 'modules/spoke.bicep' = {
 	name: '${uniqueString(swedenCentral.resourceGroupName, swedenCentral.spoke.name)}-spoke'
