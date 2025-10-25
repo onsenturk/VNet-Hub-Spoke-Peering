@@ -8,8 +8,8 @@ This repository delivers a subscription-scoped Bicep solution that builds identi
 
 ```
 Spoke (Sweden Central) -> Hub Firewall (Sweden Central) --
-                                                              \
-                                                               > Hub Firewall (West Europe) <- Spoke (West Europe)
+                                                           \
+                                                             > Hub Firewall (West Europe) <- Spoke (West Europe)
 ```
 
 - Both hubs act as secure egress points and central routing domains.
